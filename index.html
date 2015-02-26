@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MKV Parsing in Javascript</title>
+
+<script type="text/javascript" src="encoding.js"></script>
+<script type="text/javascript" src="filesaver.js"></script>
+<script type="text/javascript" src="async.js"></script>
+<script type="text/javascript" src="matroskaspec.js"></script>
+<script type="text/javascript" src="mkvreader.js"></script>
+<script type="text/javascript" src="mp4builder.js"></script>
+
+<script id="j">
+var urlParams;
+var video_fileinput, test_fileinput;
+var mkv;
+var videoJsObj;
+
+window.onload = function() {
+  var urlParams = getUrlParams();
+  //videoJsObj = videojs("video_player", {}, null);
+  video_fileinput = document.getElementById("video_fileinput");
+  video_player = document.getElementById("video_player");
+}
+
+function loadFile() {
+  var fr = new FileReader();
+  fr.onload = function(){parseMKV(fr.result)};
+  fr.readAsArrayBuffer(video_fileinput.files[0]);
+}
+
+function loadMulti() {
+    var fr1 = new FileReader();
+    var fr2 = new FileReader();
+    fr1.onload = function(){console.log(fr1.result)};
+    fr1.readAsArrayBuffer(test_fileinput.files[0]);
+    fr2.onload = function(){console.log(fr2.result)};
+    fr2.readAsText(test_fileinput.files[0]);
+}
+
+function getUrlParams() {
+  var raw = window.location.search.substring(1).split("&");
+  var processed = {};
+  for (var i = 0; i < raw.length; i++) {
+    var name = raw[i].substring(0, raw[i].indexOf("="));
+    var arg = raw[i].substring(raw[i].indexOf("=") + 1);
+    if (name) processed[name] = arg;
+  }
+  return processed;
+}
+
+function parseMKV(arrayBuf) {
+    var startTime = performance.now()
+    dataView = new DataView(arrayBuf);
+    ebml = new EBMLElementList(dataView);
+    console.log(performance.now() - startTime);
+    console.log(ebml);
+}
+
+function parseAsync() {
+    mkvBlobReader = new EBMLBlobReader(video_fileinput.files[0].slice(0));
+    //mkvBlobReader.readElementAsync(function(res){a=res; console.log(res)});
+    mkv = new MKVParser(mkvBlobReader);
+    mkv.initialize(function(){
+        var videoTrackId;
+        for (var i in mkv.tracks) {
+            if (mkv.tracks[i].type == "video") videoTrackId = mkv.tracks[i].number;
+        }
+        
+        mkv.readClusters(function(){
+            var mp4Blob = MP4.build(mkv, videoTrackId);
+            video_player.src = URL.createObjectURL(mp4Blob);
+        }, [videoTrackId])
+   });
+}
+
+
+</script>
+
+</head>
+
+<body>
+  <div id="body_wrapper">
+    <div id="video_div">
+      <video id="video_player" controls preload="auto" class="video-js vjs-default-skin vjs-big-play-centered video-wrapper" src="test_noiods.mp4"></video> 
+    </div>
+      
+    <div id="top_bar">
+      MKV File: <input type="file" id="video_fileinput" accept="*/*" onchange="parseAsync()">
+      <a href="big_buck_bunny.mkv">Download Test File</a> (Big Buck Bunny © 2008, Blender Foundation / <a href="https://peach.blender.org/">Website</a> / <a href="http://creativecommons.org/licenses/by/3.0/">License</a>)
+    </div>
+  </div>
+  <style>
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+#body_wrapper {
+	background: black;
+	color: white;
+	min-height: 100%;
+	overflow: hidden;
+}
+
+#video_div {
+  background: black;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  height: 100%;
+  width: 100%;
+  margin: auto;
+}
+
+#video_player {
+  background: black;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+#subtitle_div {
+  background: transparent;
+  /*position: relative;
+  top: 0%;
+  height: 100%;*/
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+#top_bar {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  text-align: left;
+  background: rgba(0,0,0,0.5);
+  transition: transform 1s;
+  z-index: 9001;
+}
+
+a:link {
+  color: SkyBlue;
+}
+
+a:visited {
+  color: MediumPurple;
+}
+</style>
+</body>
+
